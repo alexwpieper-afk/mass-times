@@ -1,0 +1,39 @@
+name: Refresh schedule
+
+# Re-parse the newest parish bulletin and commit data.js if it changed.
+# Pages deploys from the main branch, so a commit here republishes the site.
+on:
+  schedule:
+    - cron: "0 13 * * 1"   # Mondays 13:00 UTC (~7-8 AM Central)
+  workflow_dispatch:        # allow manual "Run workflow" from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pymupdf certifi
+
+      - name: Parse latest bulletin
+        run: python fetch_schedule.py
+
+      - name: Commit if the schedule changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- data.js; then
+            echo "Schedule unchanged — nothing to commit."
+          else
+            git add data.js
+            git commit -m "Refresh schedule from latest bulletin"
+            git push
+          fi
