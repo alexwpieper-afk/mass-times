@@ -1,5 +1,7 @@
 # Mass Times — St. Columbkille Parish
 
+**Live site: <https://alexwpieper-afk.github.io/mass-times/>**
+
 A clean, mobile-first web app that shows the week's Mass schedule and **who is
 presiding at each Mass**, with filters by priest, time of day, and day of week.
 
@@ -32,17 +34,37 @@ Dependencies (one-time):
 python3 -m pip install --user pymupdf certifi
 ```
 
-## Run the app
+## Run the app locally
 
-It's a static page. Any of these work:
+It's a static page:
 
 ```bash
-# simplest
 python3 -m http.server 4173        # then open http://localhost:4173
 ```
 
-Opening `index.html` directly (file://) also works — the app and its React code
-are inlined, and `data.js` loads as a normal script.
+## Build (after editing the UI)
+
+The UI lives in `app.jsx` and is pre-compiled to `app.js` (so visitors don't
+download an in-browser compiler). After editing `app.jsx`:
+
+```bash
+./build.sh        # runs esbuild, writes app.js
+```
+
+## Deployment & automatic updates
+
+The site is hosted on **GitHub Pages** from the `main` branch of
+`alexwpieper-afk/mass-times`. To publish changes, just commit and push:
+
+```bash
+git add -A && git commit -m "..." && git push
+```
+
+A scheduled GitHub Action (`.github/workflows/refresh-schedule.yml`) runs every
+**Monday**, re-parses the newest bulletin, and commits `data.js` if it changed —
+which republishes the site automatically. So the public link always shows the
+current week with no manual work. You can also trigger it anytime from the repo's
+**Actions** tab → *Refresh schedule* → *Run workflow*.
 
 ## How the parser works
 
