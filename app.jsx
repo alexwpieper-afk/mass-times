@@ -19,6 +19,17 @@
   const PERIODS = ["Morning", "Afternoon", "Evening"];
   const todayDay = new Date().getDay();
 
+  // Chronological ordering: turn a "June 7" label into a sortable month*100+day
+  // number so we can split the week into upcoming (today onward) vs. past days.
+  const MONTHS = { January:0, February:1, March:2, April:3, May:4, June:5, July:6, August:7, September:8, October:9, November:10, December:11 };
+  const todayVal = (() => { const d = new Date(); return d.getMonth() * 100 + d.getDate(); })();
+  function dateVal(label) {
+    if (!label) return null;
+    const [mon, day] = label.split(" ");
+    if (!(mon in MONTHS)) return null;
+    return MONTHS[mon] * 100 + parseInt(day, 10);
+  }
+
   /* ---------- small UI bits ---------- */
   function Initials({ priest, size = 36 }) {
     return (
@@ -144,6 +155,70 @@
     );
   }
 
+  /* ---------- a day's masses, as a card ---------- */
+  function MassCard({ masses }) {
+    return (
+      <div style={{ borderRadius: "var(--r-md)", overflow: "hidden", boxShadow: "var(--shadow)", border: "1px solid var(--line-soft)" }}>
+        {masses.map((m, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <div style={{ height: 1, background: "var(--line-soft)", marginLeft: 16 }} />}
+            <MassRow mass={m} />
+          </React.Fragment>
+        ))}
+      </div>
+    );
+  }
+
+  /* ---------- expanded day (today + upcoming) ---------- */
+  function DaySection({ group }) {
+    const g = group;
+    return (
+      <section style={{ marginBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 4px 10px" }}>
+          <h2 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: "var(--ink)", letterSpacing: "0.01em" }}>
+            {g.day.long}
+            {g.day.date && <span style={{ marginLeft: 7, fontFamily: "var(--font-ui)", fontSize: 12.5, fontWeight: 600, color: "var(--ink-faint)" }}>{g.day.date}</span>}
+            {g.day.id === todayDay && <span style={{ marginLeft: 8, fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#fff", background: "var(--gold)", padding: "2px 7px", borderRadius: 99, verticalAlign: "middle" }}>Today</span>}
+          </h2>
+          <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-faint)" }}>{g.masses.length}</span>
+        </div>
+        <MassCard masses={g.masses} />
+      </section>
+    );
+  }
+
+  /* ---------- past day, as a collapsible drawer ---------- */
+  function DayDrawer({ group, open, onToggle }) {
+    const g = group;
+    return (
+      <section style={{ marginBottom: 10 }}>
+        <button onClick={onToggle} style={{
+          width: "100%", display: "flex", alignItems: "center", gap: 10, textAlign: "left",
+          padding: "12px 14px", background: "var(--surface)", border: "1px solid var(--line-soft)",
+          borderRadius: "var(--r-md)", boxShadow: open ? "none" : "var(--shadow)",
+          borderBottomLeftRadius: open ? 0 : "var(--r-md)", borderBottomRightRadius: open ? 0 : "var(--r-md)",
+        }}>
+          <span style={{ display: "flex", color: "var(--ink-faint)", transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform .18s ease" }}><Chevron /></span>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: "var(--ink-soft)" }}>{g.day.long}</span>
+          {g.day.date && <span style={{ fontFamily: "var(--font-ui)", fontSize: 12.5, fontWeight: 600, color: "var(--ink-faint)" }}>{g.day.date}</span>}
+          <span style={{ flex: 1 }} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-faint)" }}>{g.masses.length}</span>
+        </button>
+        {open && (
+          <div style={{ borderRadius: "0 0 var(--r-md) var(--r-md)", overflow: "hidden", border: "1px solid var(--line-soft)", borderTop: "none", animation: "fadeUp .2s ease both" }}>
+            {g.masses.map((m, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && <div style={{ height: 1, background: "var(--line-soft)", marginLeft: 16 }} />}
+                <MassRow mass={m} />
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  }
+
   /* ---------- bottom sheet ---------- */
   function Sheet({ open, title, onClose, children }) {
     if (!open) return null;
@@ -218,6 +293,12 @@
     const [period, setPeriod] = useState("all"); // Morning | Afternoon | Evening | all
     const [day, setDay]       = useState("all");
     const [sheet, setSheet]   = useState(null);   // 'church' | 'priest' | 'period' | null
+    const [openDays, setOpenDays] = useState(() => new Set()); // expanded past-day drawers
+    const toggleDay = id => setOpenDays(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
     const filtered = useMemo(() => {
       return window.MASSES.filter(m =>
@@ -228,14 +309,22 @@
       );
     }, [church, priest, period, day]);
 
-    // group by day, each day's masses sorted by time
+    // group by day; in the full-week view, order today + upcoming first and
+    // push already-passed days to the end (rendered as collapsible drawers).
     const groups = useMemo(() => {
       const byDay = {};
       filtered.forEach(m => { (byDay[m.day] = byDay[m.day] || []).push(m); });
-      return window.DAYS
-        .filter(d => byDay[d.id])
-        .map(d => ({ day: d, masses: byDay[d.id].slice().sort((a, b) => a.time.localeCompare(b.time)) }));
-    }, [filtered]);
+      const built = window.DAYS.filter(d => byDay[d.id]).map(d => ({
+        day: d,
+        val: dateVal(d.date),
+        masses: byDay[d.id].slice().sort((a, b) => a.time.localeCompare(b.time)),
+      }));
+      if (day !== "all") return built.map(g => ({ ...g, past: false }));
+      const tagged = built.map(g => ({ ...g, past: g.val != null && g.val < todayVal }));
+      const upcoming = tagged.filter(g => !g.past).sort((a, b) => (a.val ?? 0) - (b.val ?? 0));
+      const past = tagged.filter(g => g.past).sort((a, b) => (b.val ?? 0) - (a.val ?? 0));
+      return [...upcoming, ...past];
+    }, [filtered, day]);
 
     const anyFilter = church !== "all" || priest !== "all" || period !== "all" || day !== "all";
     const clearAll = () => { setChurch("all"); setPriest("all"); setPeriod("all"); setDay("all"); };
@@ -282,27 +371,23 @@
         {/* List */}
         <main style={{ flex: 1, padding: "8px 14px 24px" }}>
           {groups.length === 0 && <Empty onClear={clearAll} />}
-          {groups.map(g => (
-            <section key={g.day.id} style={{ marginBottom: 18 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 4px 10px" }}>
-                <h2 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: "var(--ink)", letterSpacing: "0.01em" }}>
-                  {g.day.long}
-                  {g.day.date && <span style={{ marginLeft: 7, fontFamily: "var(--font-ui)", fontSize: 12.5, fontWeight: 600, color: "var(--ink-faint)" }}>{g.day.date}</span>}
-                  {g.day.id === todayDay && <span style={{ marginLeft: 8, fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#fff", background: "var(--gold)", padding: "2px 7px", borderRadius: 99, verticalAlign: "middle" }}>Today</span>}
-                </h2>
-                <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-faint)" }}>{g.masses.length}</span>
-              </div>
-              <div style={{ borderRadius: "var(--r-md)", overflow: "hidden", boxShadow: "var(--shadow)", border: "1px solid var(--line-soft)" }}>
-                {g.masses.map((m, i) => (
-                  <React.Fragment key={i}>
-                    {i > 0 && <div style={{ height: 1, background: "var(--line-soft)", marginLeft: 16 }} />}
-                    <MassRow mass={m} />
-                  </React.Fragment>
-                ))}
-              </div>
-            </section>
-          ))}
+          {groups.map((g, idx) => {
+            const firstPast = g.past && (idx === 0 || !groups[idx - 1].past);
+            return (
+              <React.Fragment key={g.day.id}>
+                {firstPast && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 4px 12px", marginTop: 4 }}>
+                    <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
+                    <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-faint)" }}>Earlier this week</span>
+                    <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
+                  </div>
+                )}
+                {g.past
+                  ? <DayDrawer group={g} open={openDays.has(g.day.id)} onToggle={() => toggleDay(g.day.id)} />
+                  : <DaySection group={g} />}
+              </React.Fragment>
+            );
+          })}
 
           {/* Parishes directory */}
           <section style={{ marginTop: 4 }}>
