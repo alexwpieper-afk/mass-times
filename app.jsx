@@ -2,6 +2,7 @@
 
   /* ---------- helpers ---------- */
   const priestById = id => window.PRIESTS.find(p => p.id === id);
+  const churchById = id => window.CHURCHES.find(c => c.id === id);
 
   function fmtTime(t) {
     const [h, m] = t.split(":").map(Number);
@@ -105,7 +106,8 @@
 
   /* ---------- mass row ---------- */
   function MassRow({ mass }) {
-    const priest = priestById(mass.presider);
+    const church = churchById(mass.church);
+    const priest = mass.presider ? priestById(mass.presider) : null;
     const t = fmtTime(mass.time);
     return (
       <div style={{
@@ -120,22 +122,24 @@
           <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--gold-deep)", letterSpacing: "0.07em", marginTop: 3 }}>{t.ampm}</div>
         </div>
 
-        {/* priest-colored divider */}
-        <div style={{ width: 3, alignSelf: "stretch", borderRadius: 3, background: priest.color, opacity: 0.6, flexShrink: 0 }} />
+        {/* church-colored divider */}
+        <div style={{ width: 3, alignSelf: "stretch", borderRadius: 3, background: church.color, opacity: 0.6, flexShrink: 0 }} />
 
-        {/* details — presider + mass type stacked, each gets full width */}
+        {/* details — church name + (presider · type) stacked */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, lineHeight: 1.18, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {priest.name}
+            {church.name}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, minWidth: 0 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-soft)", whiteSpace: "nowrap" }}>{mass.type}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-soft)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {mass.type}{priest ? ` · ${priest.name}` : ""}
+            </span>
             {mass.livestream && <LiveDot />}
           </div>
         </div>
 
-        {/* priest avatar */}
-        <Initials priest={priest} size={36} />
+        {/* priest avatar (only where the presider is published) */}
+        {priest && <Initials priest={priest} size={36} />}
       </div>
     );
   }
@@ -201,7 +205,7 @@
       <div style={{ textAlign: "center", padding: "60px 30px", animation: "fadeUp .3s ease both" }}>
         <div style={{ fontSize: 34, marginBottom: 10 }}>✦</div>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 600, marginBottom: 6 }}>No masses match</div>
-        <div style={{ fontSize: 14, color: "var(--ink-soft)", marginBottom: 20, lineHeight: 1.5 }}>Try a different priest, time of day, or day.</div>
+        <div style={{ fontSize: 14, color: "var(--ink-soft)", marginBottom: 20, lineHeight: 1.5 }}>Try a different church, priest, time, or day.</div>
         <button onClick={onClear} style={{ padding: "10px 18px", borderRadius: 999, background: "var(--ink)", color: "#fff", fontSize: 14, fontWeight: 600 }}>Clear filters</button>
       </div>
     );
@@ -209,18 +213,20 @@
 
   /* ---------- main app ---------- */
   function App() {
+    const [church, setChurch] = useState("all");
     const [priest, setPriest] = useState("all");
     const [period, setPeriod] = useState("all"); // Morning | Afternoon | Evening | all
     const [day, setDay]       = useState("all");
-    const [sheet, setSheet]   = useState(null);   // 'priest' | 'period' | null
+    const [sheet, setSheet]   = useState(null);   // 'church' | 'priest' | 'period' | null
 
     const filtered = useMemo(() => {
       return window.MASSES.filter(m =>
+        (church === "all" || m.church === church) &&
         (priest === "all" || m.presider === priest) &&
         (period === "all" || partOfDay(m.time) === period) &&
         (day === "all" || m.day === day)
       );
-    }, [priest, period, day]);
+    }, [church, priest, period, day]);
 
     // group by day, each day's masses sorted by time
     const groups = useMemo(() => {
@@ -231,12 +237,13 @@
         .map(d => ({ day: d, masses: byDay[d.id].slice().sort((a, b) => a.time.localeCompare(b.time)) }));
     }, [filtered]);
 
-    const anyFilter = priest !== "all" || period !== "all" || day !== "all";
-    const clearAll = () => { setPriest("all"); setPeriod("all"); setDay("all"); };
+    const anyFilter = church !== "all" || priest !== "all" || period !== "all" || day !== "all";
+    const clearAll = () => { setChurch("all"); setPriest("all"); setPeriod("all"); setDay("all"); };
 
+    const churchLabel = church === "all" ? "All" : churchById(church).name.replace("St. ", "");
     const priestLabel = priest === "all" ? "All" : priestById(priest).name.replace("Fr. ", "");
     const periodLabel = period === "all" ? "All" : period;
-    const P = window.PARISH;
+    const A = window.APP;
 
     return (
       <div id="shell">
@@ -245,7 +252,7 @@
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--gold-deep)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {P.name} · {P.town.split(",")[0]}, NE
+                {window.CHURCHES.length} Parishes · Omaha Area
               </div>
               <h1 style={{ margin: "7px 0 0", fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 600, letterSpacing: "-0.01em", lineHeight: 1.05, whiteSpace: "nowrap" }}>Mass Times</h1>
             </div>
@@ -259,6 +266,7 @@
         {/* Sticky filters */}
         <div style={{ position: "sticky", top: 0, zIndex: 20, background: "linear-gradient(var(--cream) 78%, rgba(246,241,231,0))", paddingBottom: 10 }}>
           <div style={{ display: "flex", gap: 8, padding: "4px 18px 12px", overflowX: "auto" }}>
+            <FilterPill label="Church" value={churchLabel} active={church !== "all"} onClick={() => setSheet("church")} />
             <FilterPill label="Priest" value={priestLabel} active={priest !== "all"} onClick={() => setSheet("priest")} />
             <FilterPill label="Time" value={periodLabel} active={period !== "all"} onClick={() => setSheet("period")} />
             {anyFilter && (
@@ -297,19 +305,30 @@
           ))}
 
           {/* Source attribution */}
-          <div style={{ textAlign: "center", padding: "8px 16px 8px", color: "var(--ink-faint)", fontSize: 11.5, lineHeight: 1.6 }}>
-            <div>Intentions &amp; presiders from the parish bulletin</div>
-            <div>
-              <a href={P.sourceUrl} target="_blank" rel="noopener" style={{ color: "var(--gold-deep)", fontWeight: 600, textDecoration: "none" }}>
-                {P.week || P.sourceTitle}
-              </a>
+          <div style={{ textAlign: "center", padding: "10px 16px 8px", color: "var(--ink-faint)", fontSize: 11.5, lineHeight: 1.55 }}>
+            <div style={{ marginBottom: 5 }}>{A.presiderNote}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "2px 10px" }}>
+              {A.sources.map((s, i) => (
+                <a key={i} href={s.url} target="_blank" rel="noopener" style={{ color: "var(--gold-deep)", fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" }}>
+                  {s.name} bulletin
+                </a>
+              ))}
             </div>
+            {A.week && <div style={{ marginTop: 5 }}>St. Columbkille week of {A.week}</div>}
           </div>
         </main>
 
+        {/* Church sheet */}
+        <Sheet open={sheet === "church"} title="Filter by church" onClose={() => setSheet(null)}>
+          <OptionRow label="All churches" sub="Every parish below" selected={church === "all"} onClick={() => { setChurch("all"); setSheet(null); }} />
+          {window.CHURCHES.map(c => (
+            <OptionRow key={c.id} label={c.name} sub={c.town} dot={c.color} selected={church === c.id} onClick={() => { setChurch(c.id); setSheet(null); }} />
+          ))}
+        </Sheet>
+
         {/* Priest sheet */}
         <Sheet open={sheet === "priest"} title="Filter by priest" onClose={() => setSheet(null)}>
-          <OptionRow label="All priests" selected={priest === "all"} onClick={() => { setPriest("all"); setSheet(null); }} />
+          <OptionRow label="All priests" sub="Priests are listed for St. Columbkille" selected={priest === "all"} onClick={() => { setPriest("all"); setSheet(null); }} />
           {window.PRIESTS.map(p => (
             <OptionRow key={p.id} label={p.name} sub={p.role} dot={p.color} selected={priest === p.id} onClick={() => { setPriest(p.id); setSheet(null); }} />
           ))}

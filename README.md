@@ -1,91 +1,86 @@
-# Mass Times — St. Columbkille Parish
+# Mass Times — Omaha-area parishes
 
 **Live site: <https://alexwpieper-afk.github.io/mass-times/>**
 
-A clean, mobile-first web app that shows the week's Mass schedule and **who is
-presiding at each Mass**, with filters by priest, time of day, and day of week.
+A clean, mobile-first web app showing the week's Mass schedule across several
+Omaha-area Catholic parishes, with filters by **church, priest, time of day, and
+day of week**.
 
-The schedule isn't hand-typed — it's **parsed live from the parish bulletin PDF**
-published at <https://www.saintcolumbkille.org/news/bulletin>. Each week's bulletin
-has an *"Intentions & Presiders"* section listing every Mass time and its
-celebrant; `fetch_schedule.py` downloads the newest bulletin, extracts that
-section, and writes `data.js`, which the app reads.
+## The three parishes (and why they're handled differently)
+
+| Parish | Bulletin | What we get | How |
+|--------|----------|-------------|-----|
+| **St. Columbkille** (Papillion) | text PDF | Mass times **+ the presiding priest** of each Mass | parsed live every week |
+| **St. Matthew** (Bellevue) | scanned image PDF | Mass times only | standing schedule, stored in the script |
+| **St. Patrick** (Gretna) | scanned image PDF | Mass times only | standing schedule, stored in the script |
+
+St. Columbkille's bulletin uniquely prints an *"Intentions & Presiders"* grid in a
+real text layer, so `fetch_schedule.py` downloads the newest one and reads the
+celebrant for every Mass. St. Matthew and St. Patrick publish image-only bulletins
+with a *fixed* weekly schedule and no per-Mass presider, so their times are stored
+directly in the script (read once from their published schedules) — there's
+nothing to parse weekly and no priest to show for them.
 
 ## Files
 
 | File | What it is |
 |------|------------|
-| `fetch_schedule.py` | Downloads the latest bulletin PDF and parses it into `data.js`. |
-| `data.js` | **Auto-generated** schedule data (parish info, priests, masses). Do not edit by hand. |
-| `index.html` | The app — a self-contained React UI (warm-neutral design, bottom-sheet filters). |
+| `fetch_schedule.py` | Builds `data.js`: parses St. Columbkille's bulletin live + merges the static schedules. |
+| `data.js` | **Auto-generated** data (`window.APP`, `CHURCHES`, `PRIESTS`, `DAYS`, `MASSES`). Don't edit by hand. |
+| `app.jsx` / `app.js` | The UI source and its pre-compiled production build. |
+| `index.html` | Page shell (production React from CDN + `data.js` + `app.js`). |
+| `build.sh` | Compiles `app.jsx` → `app.js` with esbuild. |
 
-## Refresh the schedule (do this weekly, when a new bulletin posts)
+## Refresh the schedule
 
 ```bash
-python3 fetch_schedule.py
+python3 fetch_schedule.py     # re-parses St. Columbkille, re-merges static schedules
 ```
 
-It finds the most recent bulletin automatically, parses it, and rewrites
-`data.js`. Reload the page to see the new week.
+Dependencies (one-time): `python3 -m pip install --user pymupdf certifi`
 
-Dependencies (one-time):
+## Run locally
 
 ```bash
-python3 -m pip install --user pymupdf certifi
+python3 -m http.server 4173   # then open http://localhost:4173
 ```
 
-## Run the app locally
-
-It's a static page:
+## Edit the UI
 
 ```bash
-python3 -m http.server 4173        # then open http://localhost:4173
-```
-
-## Build (after editing the UI)
-
-The UI lives in `app.jsx` and is pre-compiled to `app.js` (so visitors don't
-download an in-browser compiler). After editing `app.jsx`:
-
-```bash
-./build.sh        # runs esbuild, writes app.js
+# edit app.jsx, then:
+./build.sh                    # rewrites app.js (visitors don't run an in-browser compiler)
 ```
 
 ## Deployment & automatic updates
 
-The site is hosted on **GitHub Pages** from the `main` branch of
-`alexwpieper-afk/mass-times`. To publish changes, just commit and push:
+Hosted on **GitHub Pages** from the `main` branch of `alexwpieper-afk/mass-times`.
+Publish by committing and pushing:
 
 ```bash
 git add -A && git commit -m "..." && git push
 ```
 
 A scheduled GitHub Action (`.github/workflows/refresh-schedule.yml`) runs every
-**Monday**, re-parses the newest bulletin, and commits `data.js` if it changed —
-which republishes the site automatically. So the public link always shows the
-current week with no manual work. You can also trigger it anytime from the repo's
-**Actions** tab → *Refresh schedule* → *Run workflow*.
+**Monday**, re-runs `fetch_schedule.py`, and commits `data.js` if it changed —
+which republishes the site. So St. Columbkille's presiders stay current with no
+manual work. (The two image-PDF parishes change rarely; update their schedules by
+editing `STATIC_SCHEDULES` in `fetch_schedule.py` if their published times change.)
 
-## How the parser works
+## Adding or changing a parish
 
-`fetch_schedule.py`:
+In `fetch_schedule.py`:
 
-1. Fetches the bulletin index and picks the highest-numbered (newest) bulletin link.
-2. Downloads the PDF (with a browser User-Agent — the server blocks default clients).
-3. Reads the text with PyMuPDF and isolates the `INTENTIONS & PRESIDERS` block.
-4. For each `Day, Month N` header it reads the Mass lines (`8:15am … Fr. Moser`),
-   taking the time and the presider (the last `Fr. X` / `Deacon` token on the line).
-5. Classifies each Mass — Sunday Mass / Daily Mass / Vigil / Communion Service —
-   and flags the livestreamed ones (M–F 8:15 AM, Sat 5:00 PM).
-6. Writes `window.PARISH`, `window.PRIESTS`, `window.DAYS`, `window.MASSES` to `data.js`.
-
-If the bulletin's layout ever changes and parsing yields 0 Masses, the script
-exits with an error rather than writing an empty schedule.
+- **A parish that publishes times only** (most common): add it to `CHURCHES`
+  (id, name, town, accent colour, bulletin URL) and add its weekly grid to
+  `STATIC_SCHEDULES` as `(dayId, "HH:MM", "Type")` rows (dayId 0=Sun … 6=Sat).
+- **A parish whose bulletin has a parseable text-layer presider grid**: that needs
+  custom parsing like the St. Columbkille path — open an issue / extend `parse_masses`.
 
 ## Notes
 
-- Presider assignments **rotate weekly**, so the app reflects whoever the bulletin
-  lists for the current week — re-run the fetch to stay current.
-- The standing weekly time grid (also on the bulletin masthead / the parish
-  "Mass Times" page) matches the parsed times, so the times are stable even as
-  presiders change.
+- St. Columbkille presiders **rotate weekly**; the Monday auto-refresh keeps them current.
+- The current week's calendar dates (shown in each day header) come from the
+  St. Columbkille bulletin and are shared by all parishes (same archdiocese/week).
+- If St. Columbkille's bulletin layout changes and parsing yields 0 Masses, the
+  script exits with an error rather than writing an empty schedule.

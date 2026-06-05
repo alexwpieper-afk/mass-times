@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 """
-Fetch the latest St. Columbkille Parish bulletin (PDF) and parse this week's
-Mass schedule + presiding priests out of the "INTENTIONS & PRESIDERS" section.
-Writes the result to data.js, which the Mass Times web app consumes.
+Build data.js for the Mass Times web app, covering several Omaha-area parishes.
 
-Re-run weekly (a new bulletin is posted each week) to refresh the app:
+- St. Columbkille (Papillion): its bulletin is a real text PDF that lists each
+  Mass's time AND presiding priest in an "INTENTIONS & PRESIDERS" grid, so we
+  parse the newest bulletin live every week.
+- St. Matthew (Bellevue) and St. Patrick (Gretna): their bulletins are scanned
+  IMAGES with no text layer, and they publish a fixed weekly Mass schedule
+  rather than per-Mass presiders. Their standing schedules are stored below
+  (read once from the bulletins) — no per-week parsing, no presiders.
+
+The current week's calendar dates come from the St. Columbkille bulletin and are
+shared by all parishes (same archdiocese, same week).
+
+Re-run to refresh (the weekly GitHub Action does this automatically):
 
     python3 fetch_schedule.py
 
-Dependencies: pymupdf  (pip install --user pymupdf)
+Dependencies: pymupdf  (pip install --user pymupdf certifi)
 """
 
 import json
@@ -34,13 +43,31 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
       "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 OUT = Path(__file__).with_name("data.js")
 
-# ---- Parish facts (stable; from the bulletin masthead / mass-times page) ----
-PARISH = {
-    "name": "St. Columbkille Parish",
-    "town": "Papillion, Nebraska",
-    "address": "200 E. 6th St, Papillion, NE 68046",
-    "phone": "402-339-3285",
-    "livestream": "St. Columbkille Parish (YouTube)",
+# ---- Churches shown in the app (divider colour, town, bulletin link) ----
+CHURCHES = [
+    {"id": "columbkille", "name": "St. Columbkille", "town": "Papillion", "color": "#9E6B3F",
+     "bulletin": "https://www.saintcolumbkille.org/news/bulletin"},
+    {"id": "matthew", "name": "St. Matthew", "town": "Bellevue", "color": "#5E7C6B",
+     "bulletin": "https://stmatthewbellevue.org/news/bulletin"},
+    {"id": "patrick", "name": "St. Patrick", "town": "Gretna", "color": "#5C6E8C",
+     "bulletin": "https://stpatricksgretna.org/bulletins/"},
+]
+
+# ---- Standing weekly schedules for the image-PDF parishes (day, time24, type).
+# Read directly from each parish's published Mass schedule; no presiders listed.
+STATIC_SCHEDULES = {
+    "matthew": [   # Sat 5pm Vigil; Sun 9 & 11am; Mon-Fri 9am
+        (6, "17:00", "Vigil"),
+        (0, "09:00", "Sunday Mass"), (0, "11:00", "Sunday Mass"),
+        (1, "09:00", "Daily Mass"), (2, "09:00", "Daily Mass"), (3, "09:00", "Daily Mass"),
+        (4, "09:00", "Daily Mass"), (5, "09:00", "Daily Mass"),
+    ],
+    "patrick": [   # Sat 5pm Vigil; Sun 8/10am & Noon; Tue 6pm; Mon/Wed/Thu/Fri 7:30am
+        (6, "17:00", "Vigil"),
+        (0, "08:00", "Sunday Mass"), (0, "10:00", "Sunday Mass"), (0, "12:00", "Sunday Mass"),
+        (1, "07:30", "Daily Mass"), (2, "18:00", "Daily Mass"), (3, "07:30", "Daily Mass"),
+        (4, "07:30", "Daily Mass"), (5, "07:30", "Daily Mass"),
+    ],
 }
 
 # Map the short presider token used in the bulletin -> full priest record.
@@ -161,6 +188,7 @@ def parse_masses(pdf_bytes: bytes):
         intention = re.sub(r"\s+", " ", body).strip(" ,")
         mtype, live = classify(current_day, time24, is_communion)
         masses.append({
+            "church": "columbkille",
             "day": current_day,
             "time": time24,
             "presider": PRIESTS[token]["id"],
@@ -180,18 +208,37 @@ def parse_masses(pdf_bytes: bytes):
     return unique, week, dates
 
 
-def render_data_js(masses, week, dates, source_url, source_title) -> str:
-    priests = list(PRIESTS.values())
-    used = {m["presider"] for m in masses}
-    priests = [p for p in priests if p["id"] in used]
+def build_static_masses():
+    masses = []
+    for cid, sched in STATIC_SCHEDULES.items():
+        for day, time24, mtype in sched:
+            masses.append({
+                "church": cid, "day": day, "time": time24,
+                "presider": None, "type": mtype, "livestream": False, "intention": "",
+            })
+    return masses
+
+
+def render_data_js(masses, week, dates, columbkille_source) -> str:
+    used = {m.get("presider") for m in masses}
+    priests = [p for p in PRIESTS.values() if p["id"] in used]
     days = [{**d, "date": dates.get(d["id"])} for d in DAYS]
-    meta = {**PARISH, "week": week, "sourceUrl": source_url, "sourceTitle": source_title}
+    app = {
+        "title": "Mass Times",
+        "region": "Omaha-area Catholic parishes",
+        "week": week,
+        "presiderNote": "Presiding priests are listed for St. Columbkille; "
+                        "the other parishes publish Mass times only.",
+        "sources": [{"name": c["name"], "town": c["town"], "url": c["bulletin"]} for c in CHURCHES],
+        "columbkilleSource": columbkille_source,
+    }
     j = lambda v: json.dumps(v, ensure_ascii=False, indent=2)
     return (
         "// AUTO-GENERATED by fetch_schedule.py — do not edit by hand.\n"
-        f"// Source: {source_title}\n"
-        f"// {source_url}\n\n"
-        f"window.PARISH = {j(meta)};\n\n"
+        f"// St. Columbkille week: {week}\n"
+        f"// {columbkille_source}\n\n"
+        f"window.APP = {j(app)};\n\n"
+        f"window.CHURCHES = {j(CHURCHES)};\n\n"
         f"window.PRIESTS = {j(priests)};\n\n"
         f"window.DAYS = {j(days)};\n\n"
         f"window.MASSES = {j(masses)};\n"
@@ -199,22 +246,27 @@ def render_data_js(masses, week, dates, source_url, source_title) -> str:
 
 
 def main():
-    print("Finding latest bulletin…")
+    print("Finding latest St. Columbkille bulletin…")
     pdf_url, title = find_latest_bulletin()
     print(f"  → {title}\n  → {pdf_url}")
     print("Downloading PDF…")
     pdf_bytes = get(pdf_url)
     print(f"  → {len(pdf_bytes):,} bytes")
-    print("Parsing schedule…")
-    masses, week, dates = parse_masses(pdf_bytes)
-    if not masses:
+    print("Parsing St. Columbkille schedule…")
+    columb, week, dates = parse_masses(pdf_bytes)
+    if not columb:
         sys.exit("Parsed 0 masses — the bulletin layout may have changed.")
-    OUT.write_text(render_data_js(masses, week, dates, pdf_url, title), encoding="utf-8")
-    by_day = {}
+
+    masses = columb + build_static_masses()
+    masses.sort(key=lambda m: (m["day"], m["time"], m["church"]))
+    OUT.write_text(render_data_js(masses, week, dates, pdf_url), encoding="utf-8")
+
+    counts = {}
     for m in masses:
-        by_day.setdefault(m["day"], 0)
-        by_day[m["day"]] += 1
-    print(f"  → {len(masses)} masses for the week of: {week}")
+        counts[m["church"]] = counts.get(m["church"], 0) + 1
+    summary = ", ".join(f"{k}: {v}" for k, v in counts.items())
+    print(f"  → St. Columbkille week: {week}")
+    print(f"  → {len(masses)} masses total ({summary})")
     print(f"  → wrote {OUT}")
 
 
