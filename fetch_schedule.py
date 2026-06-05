@@ -68,7 +68,7 @@ WEEKDAY_ID = {"Sunday": 0, "Monday": 1, "Tuesday": 2, "Wednesday": 3,
 PRESIDER_RE = re.compile(r"(Fr\.\s+\w+|Deacon)")
 TIME_RE = re.compile(r"^(\d{1,2}):(\d{2})\s*([ap])m", re.IGNORECASE)
 DAY_HEADER_RE = re.compile(
-    r"^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday),\s+\w+\s+\d{1,2}")
+    r"^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday),\s+([A-Za-z]+)\s+(\d{1,2})")
 
 
 def get(url: str) -> bytes:
@@ -132,13 +132,16 @@ def parse_masses(pdf_bytes: bytes):
     lines = section.splitlines()
 
     masses = []
+    dates = {}            # day id -> "June 7"
     current_day = None
     for raw in lines:
         line = raw.strip()
         if not line:
             continue
-        if DAY_HEADER_RE.match(line):
-            current_day = WEEKDAY_ID[line.split(",")[0]]
+        dh = DAY_HEADER_RE.match(line)
+        if dh:
+            current_day = WEEKDAY_ID[dh.group(1)]
+            dates[current_day] = f"{dh.group(2)} {int(dh.group(3))}"
             continue
         tm = TIME_RE.match(line)
         if not tm or current_day is None:
@@ -174,13 +177,14 @@ def parse_masses(pdf_bytes: bytes):
             seen.add(key)
             unique.append(x)
     unique.sort(key=lambda x: (x["day"], x["time"]))
-    return unique, week
+    return unique, week, dates
 
 
-def render_data_js(masses, week, source_url, source_title) -> str:
+def render_data_js(masses, week, dates, source_url, source_title) -> str:
     priests = list(PRIESTS.values())
     used = {m["presider"] for m in masses}
     priests = [p for p in priests if p["id"] in used]
+    days = [{**d, "date": dates.get(d["id"])} for d in DAYS]
     meta = {**PARISH, "week": week, "sourceUrl": source_url, "sourceTitle": source_title}
     j = lambda v: json.dumps(v, ensure_ascii=False, indent=2)
     return (
@@ -189,7 +193,7 @@ def render_data_js(masses, week, source_url, source_title) -> str:
         f"// {source_url}\n\n"
         f"window.PARISH = {j(meta)};\n\n"
         f"window.PRIESTS = {j(priests)};\n\n"
-        f"window.DAYS = {j(DAYS)};\n\n"
+        f"window.DAYS = {j(days)};\n\n"
         f"window.MASSES = {j(masses)};\n"
     )
 
@@ -202,10 +206,10 @@ def main():
     pdf_bytes = get(pdf_url)
     print(f"  → {len(pdf_bytes):,} bytes")
     print("Parsing schedule…")
-    masses, week = parse_masses(pdf_bytes)
+    masses, week, dates = parse_masses(pdf_bytes)
     if not masses:
         sys.exit("Parsed 0 masses — the bulletin layout may have changed.")
-    OUT.write_text(render_data_js(masses, week, pdf_url, title), encoding="utf-8")
+    OUT.write_text(render_data_js(masses, week, dates, pdf_url, title), encoding="utf-8")
     by_day = {}
     for m in masses:
         by_day.setdefault(m["day"], 0)

@@ -279,6 +279,7 @@
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 4px 10px" }}>
                 <h2 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: "var(--ink)", letterSpacing: "0.01em" }}>
                   {g.day.long}
+                  {g.day.date && <span style={{ marginLeft: 7, fontFamily: "var(--font-ui)", fontSize: 12.5, fontWeight: 600, color: "var(--ink-faint)" }}>{g.day.date}</span>}
                   {g.day.id === todayDay && <span style={{ marginLeft: 8, fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#fff", background: "var(--gold)", padding: "2px 7px", borderRadius: 99, verticalAlign: "middle" }}>Today</span>}
                 </h2>
                 <div style={{ flex: 1, height: 1, background: "var(--line)" }} />

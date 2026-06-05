@@ -48,37 +48,44 @@ window.DAYS = [
   {
     "id": 0,
     "short": "Sun",
-    "long": "Sunday"
+    "long": "Sunday",
+    "date": "June 7"
   },
   {
     "id": 1,
     "short": "Mon",
-    "long": "Monday"
+    "long": "Monday",
+    "date": "June 1"
   },
   {
     "id": 2,
     "short": "Tue",
-    "long": "Tuesday"
+    "long": "Tuesday",
+    "date": "June 2"
   },
   {
     "id": 3,
     "short": "Wed",
-    "long": "Wednesday"
+    "long": "Wednesday",
+    "date": "June 3"
   },
   {
     "id": 4,
     "short": "Thu",
-    "long": "Thursday"
+    "long": "Thursday",
+    "date": "June 4"
   },
   {
     "id": 5,
     "short": "Fri",
-    "long": "Friday"
+    "long": "Friday",
+    "date": "June 5"
   },
   {
     "id": 6,
     "short": "Sat",
-    "long": "Saturday"
+    "long": "Saturday",
+    "date": "June 6"
   }
 ];
 
