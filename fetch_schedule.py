@@ -43,13 +43,21 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
       "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 OUT = Path(__file__).with_name("data.js")
 
-# ---- Churches shown in the app (divider colour, town, bulletin link) ----
+# ---- Churches shown in the app (colour, town, pastor, website, bulletin) ----
+# St. Columbkille's pastor is also parsed live from its bulletin (see parse_pastor)
+# so the label stays correct through Fr. Greisen's June 2026 retirement.
 CHURCHES = [
     {"id": "columbkille", "name": "St. Columbkille", "town": "Papillion", "color": "#9E6B3F",
+     "pastor": "Fr. Tom Greisen",
+     "website": "https://www.saintcolumbkille.org",
      "bulletin": "https://www.saintcolumbkille.org/news/bulletin"},
     {"id": "matthew", "name": "St. Matthew", "town": "Bellevue", "color": "#5E7C6B",
+     "pastor": "Fr. Leo Rigatuso",
+     "website": "https://stmatthewbellevue.org",
      "bulletin": "https://stmatthewbellevue.org/news/bulletin"},
     {"id": "patrick", "name": "St. Patrick", "town": "Gretna", "color": "#5C6E8C",
+     "pastor": "Fr. Gregory Baxter",
+     "website": "https://stpatricksgretna.org",
      "bulletin": "https://stpatricksgretna.org/bulletins/"},
 ]
 
@@ -127,6 +135,13 @@ def to_24h(hour: int, minute: int, ap: str) -> str:
     return f"{hour:02d}:{minute:02d}"
 
 
+def parse_pastor(text: str):
+    """Pull the current pastor's name from the bulletin clergy list, e.g.
+    'FR. TOM GREISEN, PASTOR' -> 'Fr. Tom Greisen'. Skips 'ASSOCIATE PASTOR'."""
+    m = re.search(r"\n\s*((?:FR|REV|MSGR)\.[A-Z.'’\- ]+?),\s*PASTOR\b", text)
+    return m.group(1).strip().title() if m else None
+
+
 def classify(day_id: int, time24: str, is_communion: bool):
     """Return (type_label, livestreamed)."""
     # M-F 8:15 AM and the Saturday 5:00 PM Vigil are livestreamed per the bulletin.
@@ -150,6 +165,8 @@ def parse_masses(pdf_bytes: bytes):
     m = re.search(r"([A-Z][^\n•]*?Sunday[^\n•]*)•\s*([A-Z][a-z]+ \d{1,2},\s*\d{4})", full)
     if m:
         week = f"{m.group(1).strip()} · {m.group(2).strip()}"
+
+    pastor = parse_pastor(full)
 
     start = full.find("INTENTIONS & PRESIDERS")
     if start == -1:
@@ -205,7 +222,7 @@ def parse_masses(pdf_bytes: bytes):
             seen.add(key)
             unique.append(x)
     unique.sort(key=lambda x: (x["day"], x["time"]))
-    return unique, week, dates
+    return unique, week, dates, pastor
 
 
 def build_static_masses():
@@ -219,18 +236,21 @@ def build_static_masses():
     return masses
 
 
-def render_data_js(masses, week, dates, columbkille_source) -> str:
+def render_data_js(masses, week, dates, columbkille_source, columbkille_pastor) -> str:
     used = {m.get("presider") for m in masses}
     priests = [p for p in PRIESTS.values() if p["id"] in used]
     days = [{**d, "date": dates.get(d["id"])} for d in DAYS]
+    churches = [dict(c) for c in CHURCHES]
+    if columbkille_pastor:                       # keep current through retirement
+        for c in churches:
+            if c["id"] == "columbkille":
+                c["pastor"] = columbkille_pastor
     app = {
         "title": "Mass Times",
         "region": "Omaha-area Catholic parishes",
         "week": week,
         "presiderNote": "Presiding priests are listed for St. Columbkille; "
                         "the other parishes publish Mass times only.",
-        "sources": [{"name": c["name"], "town": c["town"], "url": c["bulletin"]} for c in CHURCHES],
-        "columbkilleSource": columbkille_source,
     }
     j = lambda v: json.dumps(v, ensure_ascii=False, indent=2)
     return (
@@ -238,7 +258,7 @@ def render_data_js(masses, week, dates, columbkille_source) -> str:
         f"// St. Columbkille week: {week}\n"
         f"// {columbkille_source}\n\n"
         f"window.APP = {j(app)};\n\n"
-        f"window.CHURCHES = {j(CHURCHES)};\n\n"
+        f"window.CHURCHES = {j(churches)};\n\n"
         f"window.PRIESTS = {j(priests)};\n\n"
         f"window.DAYS = {j(days)};\n\n"
         f"window.MASSES = {j(masses)};\n"
@@ -253,13 +273,15 @@ def main():
     pdf_bytes = get(pdf_url)
     print(f"  → {len(pdf_bytes):,} bytes")
     print("Parsing St. Columbkille schedule…")
-    columb, week, dates = parse_masses(pdf_bytes)
+    columb, week, dates, pastor = parse_masses(pdf_bytes)
     if not columb:
         sys.exit("Parsed 0 masses — the bulletin layout may have changed.")
 
     masses = columb + build_static_masses()
     masses.sort(key=lambda m: (m["day"], m["time"], m["church"]))
-    OUT.write_text(render_data_js(masses, week, dates, pdf_url), encoding="utf-8")
+    OUT.write_text(render_data_js(masses, week, dates, pdf_url, pastor), encoding="utf-8")
+    if pastor:
+        print(f"  → St. Columbkille pastor: {pastor}")
 
     counts = {}
     for m in masses:

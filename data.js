@@ -6,25 +6,7 @@ window.APP = {
   "title": "Mass Times",
   "region": "Omaha-area Catholic parishes",
   "week": "Holy Trinity Sunday · May 31, 2026",
-  "presiderNote": "Presiding priests are listed for St. Columbkille; the other parishes publish Mass times only.",
-  "sources": [
-    {
-      "name": "St. Columbkille",
-      "town": "Papillion",
-      "url": "https://www.saintcolumbkille.org/news/bulletin"
-    },
-    {
-      "name": "St. Matthew",
-      "town": "Bellevue",
-      "url": "https://stmatthewbellevue.org/news/bulletin"
-    },
-    {
-      "name": "St. Patrick",
-      "town": "Gretna",
-      "url": "https://stpatricksgretna.org/bulletins/"
-    }
-  ],
-  "columbkilleSource": "https://www.saintcolumbkille.org/news/bulletin/1579-may-31-2026-holy-trinity-sunday/file"
+  "presiderNote": "Presiding priests are listed for St. Columbkille; the other parishes publish Mass times only."
 };
 
 window.CHURCHES = [
@@ -33,6 +15,8 @@ window.CHURCHES = [
     "name": "St. Columbkille",
     "town": "Papillion",
     "color": "#9E6B3F",
+    "pastor": "Fr. Tom Greisen",
+    "website": "https://www.saintcolumbkille.org",
     "bulletin": "https://www.saintcolumbkille.org/news/bulletin"
   },
   {
@@ -40,6 +24,8 @@ window.CHURCHES = [
     "name": "St. Matthew",
     "town": "Bellevue",
     "color": "#5E7C6B",
+    "pastor": "Fr. Leo Rigatuso",
+    "website": "https://stmatthewbellevue.org",
     "bulletin": "https://stmatthewbellevue.org/news/bulletin"
   },
   {
@@ -47,6 +33,8 @@ window.CHURCHES = [
     "name": "St. Patrick",
     "town": "Gretna",
     "color": "#5C6E8C",
+    "pastor": "Fr. Gregory Baxter",
+    "website": "https://stpatricksgretna.org",
     "bulletin": "https://stpatricksgretna.org/bulletins/"
   }
 ];

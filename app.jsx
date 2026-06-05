@@ -304,17 +304,38 @@
             </section>
           ))}
 
-          {/* Source attribution */}
-          <div style={{ textAlign: "center", padding: "10px 16px 8px", color: "var(--ink-faint)", fontSize: 11.5, lineHeight: 1.55 }}>
-            <div style={{ marginBottom: 5 }}>{A.presiderNote}</div>
-            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "2px 10px" }}>
-              {A.sources.map((s, i) => (
-                <a key={i} href={s.url} target="_blank" rel="noopener" style={{ color: "var(--gold-deep)", fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" }}>
-                  {s.name} bulletin
-                </a>
+          {/* Parishes directory */}
+          <section style={{ marginTop: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 4px 10px" }}>
+              <h2 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>Parishes</h2>
+              <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
+            </div>
+            <div style={{ borderRadius: "var(--r-md)", overflow: "hidden", boxShadow: "var(--shadow)", border: "1px solid var(--line-soft)" }}>
+              {window.CHURCHES.map((c, i) => (
+                <React.Fragment key={c.id}>
+                  {i > 0 && <div style={{ height: 1, background: "var(--line-soft)", marginLeft: 16 }} />}
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: "13px 15px", background: "var(--surface)" }}>
+                    <span style={{ width: 9, height: 9, borderRadius: "50%", background: c.color, marginTop: 6, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, color: "var(--ink)" }}>
+                        {c.name} <span style={{ fontFamily: "var(--font-ui)", fontSize: 12.5, fontWeight: 600, color: "var(--ink-faint)" }}>· {c.town}</span>
+                      </div>
+                      {c.pastor && <div style={{ fontSize: 13, color: "var(--ink-soft)", marginTop: 2 }}>{c.pastor}</div>}
+                      <div style={{ display: "flex", gap: 16, marginTop: 7 }}>
+                        <a href={c.website} target="_blank" rel="noopener" style={{ fontSize: 13, fontWeight: 600, color: "var(--gold-deep)", textDecoration: "none" }}>Website ↗</a>
+                        <a href={c.bulletin} target="_blank" rel="noopener" style={{ fontSize: 13, fontWeight: 600, color: "var(--gold-deep)", textDecoration: "none" }}>Bulletin ↗</a>
+                      </div>
+                    </div>
+                  </div>
+                </React.Fragment>
               ))}
             </div>
-            {A.week && <div style={{ marginTop: 5 }}>St. Columbkille week of {A.week}</div>}
+          </section>
+
+          {/* Source note */}
+          <div style={{ textAlign: "center", padding: "14px 16px 8px", color: "var(--ink-faint)", fontSize: 11.5, lineHeight: 1.55 }}>
+            <div>{A.presiderNote}</div>
+            {A.week && <div style={{ marginTop: 4 }}>St. Columbkille week of {A.week}</div>}
           </div>
         </main>
 
@@ -322,7 +343,7 @@
         <Sheet open={sheet === "church"} title="Filter by church" onClose={() => setSheet(null)}>
           <OptionRow label="All churches" sub="Every parish below" selected={church === "all"} onClick={() => { setChurch("all"); setSheet(null); }} />
           {window.CHURCHES.map(c => (
-            <OptionRow key={c.id} label={c.name} sub={c.town} dot={c.color} selected={church === c.id} onClick={() => { setChurch(c.id); setSheet(null); }} />
+            <OptionRow key={c.id} label={c.name} sub={c.pastor ? `${c.town} · ${c.pastor}` : c.town} dot={c.color} selected={church === c.id} onClick={() => { setChurch(c.id); setSheet(null); }} />
           ))}
         </Sheet>
 
