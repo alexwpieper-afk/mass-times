@@ -4,8 +4,11 @@ name: Refresh schedule
 # Pages deploys from the main branch, so a commit here republishes the site.
 on:
   schedule:
-    - cron: "17 13 * * 1"   # Mondays 13:17 UTC (~7-8 AM Central; off the
-                            # top-of-hour, which GitHub drops most often)
+    # Sunday and Monday mornings (~7-8 AM Central) so a newly-posted weekend
+    # bulletin is picked up promptly, with Monday as a backup. 13:17 UTC is off
+    # the top-of-hour, which GitHub drops most often under load.
+    - cron: "17 13 * * 0"   # Sundays 13:17 UTC
+    - cron: "17 13 * * 1"   # Mondays 13:17 UTC
   workflow_dispatch:        # allow manual "Run workflow" from the Actions tab
 
 permissions:

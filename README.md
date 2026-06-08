@@ -62,10 +62,12 @@ git add -A && git commit -m "..." && git push
 ```
 
 A scheduled GitHub Action (`.github/workflows/refresh-schedule.yml`) runs every
-**Monday**, re-runs `fetch_schedule.py`, and commits `data.js` if it changed —
-which republishes the site. So St. Columbkille's presiders stay current with no
-manual work. (The two image-PDF parishes change rarely; update their schedules by
-editing `STATIC_SCHEDULES` in `fetch_schedule.py` if their published times change.)
+**Sunday and Monday** morning, re-runs `fetch_schedule.py`, and commits `data.js`
+if it changed — which republishes the site. Two runs mean a newly-posted weekend
+bulletin is caught promptly, with Monday as a backup, so St. Columbkille's
+presiders stay current with no manual work. (The two image-PDF parishes change
+rarely; update their schedules by editing `STATIC_SCHEDULES` in
+`fetch_schedule.py` if their published times change.)
 
 ## Adding or changing a parish
 
@@ -79,7 +81,7 @@ In `fetch_schedule.py`:
 
 ## Notes
 
-- St. Columbkille presiders **rotate weekly**; the Monday auto-refresh keeps them current.
+- St. Columbkille presiders **rotate weekly**; the Sunday/Monday auto-refresh keeps them current.
 - The current week's calendar dates (shown in each day header) come from the
   St. Columbkille bulletin and are shared by all parishes (same archdiocese/week).
 - If St. Columbkille's bulletin layout changes and parsing yields 0 Masses, the
