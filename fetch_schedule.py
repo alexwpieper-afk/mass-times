@@ -24,6 +24,8 @@ import json
 import re
 import ssl
 import sys
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -106,10 +108,40 @@ DAY_HEADER_RE = re.compile(
     r"^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday),\s+([A-Za-z]+)\s+(\d{1,2})")
 
 
-def get(url: str) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": BULLETIN_INDEX})
-    with urllib.request.urlopen(req, timeout=60, context=SSL_CTX) as r:
-        return r.read()
+def get(url: str, attempts: int = 5) -> bytes:
+    """Fetch a URL with browser-like headers and retry transient failures.
+    The parish server rate-limits datacenter IPs (e.g. GitHub Actions) with
+    HTTP 429, so we back off and retry rather than failing the whole refresh."""
+    headers = {
+        "User-Agent": UA,
+        "Referer": BULLETIN_INDEX,
+        "Accept": "text/html,application/xhtml+xml,application/pdf,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Connection": "keep-alive",
+    }
+    last = None
+    for i in range(attempts):
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=90, context=SSL_CTX) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            last = e
+            retryable = e.code in (429, 500, 502, 503, 504)
+            if not retryable or i == attempts - 1:
+                raise
+            ra = e.headers.get("Retry-After") if e.headers else None
+            wait = int(ra) if (ra and ra.isdigit()) else 5 * (2 ** i)  # 5,10,20,40
+            print(f"    …HTTP {e.code}; retrying in {min(wait, 120)}s "
+                  f"(attempt {i + 1}/{attempts})")
+            time.sleep(min(wait, 120))
+        except urllib.error.URLError as e:
+            last = e
+            if i == attempts - 1:
+                raise
+            print(f"    …{e}; retrying (attempt {i + 1}/{attempts})")
+            time.sleep(5 * (2 ** i))
+    raise last  # pragma: no cover
 
 
 def find_latest_bulletin() -> tuple[str, str]:
@@ -270,6 +302,7 @@ def main():
     pdf_url, title = find_latest_bulletin()
     print(f"  → {title}\n  → {pdf_url}")
     print("Downloading PDF…")
+    time.sleep(3)  # be polite between the index hit and the large PDF download
     pdf_bytes = get(pdf_url)
     print(f"  → {len(pdf_bytes):,} bytes")
     print("Parsing St. Columbkille schedule…")

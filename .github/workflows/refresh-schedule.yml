@@ -4,7 +4,8 @@ name: Refresh schedule
 # Pages deploys from the main branch, so a commit here republishes the site.
 on:
   schedule:
-    - cron: "0 13 * * 1"   # Mondays 13:00 UTC (~7-8 AM Central)
+    - cron: "17 13 * * 1"   # Mondays 13:17 UTC (~7-8 AM Central; off the
+                            # top-of-hour, which GitHub drops most often)
   workflow_dispatch:        # allow manual "Run workflow" from the Actions tab
 
 permissions:
