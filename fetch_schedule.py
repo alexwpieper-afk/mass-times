@@ -108,10 +108,11 @@ DAY_HEADER_RE = re.compile(
     r"^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday),\s+([A-Za-z]+)\s+(\d{1,2})")
 
 
-def get(url: str, attempts: int = 5) -> bytes:
+def get(url: str, attempts: int = 5, timeout: int = 90) -> bytes:
     """Fetch a URL with browser-like headers and retry transient failures.
-    The parish server rate-limits datacenter IPs (e.g. GitHub Actions) with
-    HTTP 429, so we back off and retry rather than failing the whole refresh."""
+    The parish server throttles datacenter IPs (e.g. GitHub Actions) — both
+    HTTP 429 and stalled/slow transfers — so we use a generous timeout and
+    back off and retry rather than failing the whole refresh."""
     headers = {
         "User-Agent": UA,
         "Referer": BULLETIN_INDEX,
@@ -123,7 +124,7 @@ def get(url: str, attempts: int = 5) -> bytes:
     for i in range(attempts):
         try:
             req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=90, context=SSL_CTX) as r:
+            with urllib.request.urlopen(req, timeout=timeout, context=SSL_CTX) as r:
                 return r.read()
         except urllib.error.HTTPError as e:
             last = e
@@ -303,7 +304,7 @@ def main():
     print(f"  → {title}\n  → {pdf_url}")
     print("Downloading PDF…")
     time.sleep(3)  # be polite between the index hit and the large PDF download
-    pdf_bytes = get(pdf_url)
+    pdf_bytes = get(pdf_url, attempts=3, timeout=300)  # 15 MB, often throttled from CI
     print(f"  → {len(pdf_bytes):,} bytes")
     print("Parsing St. Columbkille schedule…")
     columb, week, dates, pastor = parse_masses(pdf_bytes)
