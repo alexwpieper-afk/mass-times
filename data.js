@@ -29,6 +29,15 @@ window.CHURCHES = [
     "bulletin": "https://stmatthewbellevue.org/news/bulletin"
   },
   {
+    "id": "mary",
+    "name": "St. Mary's",
+    "town": "Bellevue",
+    "color": "#8A5E72",
+    "pastor": "Fr. Lydell Lape",
+    "website": "https://stmarysbellevue.com",
+    "bulletin": "https://stmarysbellevue.com/bulletin"
+  },
+  {
     "id": "patrick",
     "name": "St. Patrick",
     "town": "Gretna",
@@ -126,6 +135,15 @@ window.MASSES = [
     "intention": "Deceased"
   },
   {
+    "church": "mary",
+    "day": 0,
+    "time": "08:00",
+    "presider": null,
+    "type": "Sunday Mass",
+    "livestream": false,
+    "intention": ""
+  },
+  {
     "church": "patrick",
     "day": 0,
     "time": "08:00",
@@ -147,6 +165,15 @@ window.MASSES = [
     "church": "matthew",
     "day": 0,
     "time": "09:00",
+    "presider": null,
+    "type": "Sunday Mass",
+    "livestream": false,
+    "intention": ""
+  },
+  {
+    "church": "mary",
+    "day": 0,
+    "time": "10:00",
     "presider": null,
     "type": "Sunday Mass",
     "livestream": false,
@@ -189,11 +216,29 @@ window.MASSES = [
     "intention": "+Delbert Ostergaard"
   },
   {
+    "church": "mary",
+    "day": 0,
+    "time": "12:00",
+    "presider": null,
+    "type": "Sunday Mass",
+    "livestream": false,
+    "intention": ""
+  },
+  {
     "church": "patrick",
     "day": 0,
     "time": "12:00",
     "presider": null,
     "type": "Sunday Mass",
+    "livestream": false,
+    "intention": ""
+  },
+  {
+    "church": "mary",
+    "day": 0,
+    "time": "13:30",
+    "presider": null,
+    "type": "Sunday Mass · Spanish",
     "livestream": false,
     "intention": ""
   },
@@ -207,9 +252,27 @@ window.MASSES = [
     "intention": "Parishioners of"
   },
   {
+    "church": "mary",
+    "day": 1,
+    "time": "07:00",
+    "presider": null,
+    "type": "Daily Mass",
+    "livestream": false,
+    "intention": ""
+  },
+  {
     "church": "patrick",
     "day": 1,
     "time": "07:30",
+    "presider": null,
+    "type": "Daily Mass",
+    "livestream": false,
+    "intention": ""
+  },
+  {
+    "church": "mary",
+    "day": 1,
+    "time": "08:00",
     "presider": null,
     "type": "Daily Mass",
     "livestream": false,
@@ -241,6 +304,24 @@ window.MASSES = [
     "type": "Daily Mass",
     "livestream": false,
     "intention": "+Rita Griffin"
+  },
+  {
+    "church": "mary",
+    "day": 2,
+    "time": "07:00",
+    "presider": null,
+    "type": "Daily Mass",
+    "livestream": false,
+    "intention": ""
+  },
+  {
+    "church": "mary",
+    "day": 2,
+    "time": "08:00",
+    "presider": null,
+    "type": "Daily Mass",
+    "livestream": false,
+    "intention": ""
   },
   {
     "church": "columbkille",
@@ -279,6 +360,15 @@ window.MASSES = [
     "intention": ""
   },
   {
+    "church": "mary",
+    "day": 3,
+    "time": "07:00",
+    "presider": null,
+    "type": "Daily Mass",
+    "livestream": false,
+    "intention": ""
+  },
+  {
     "church": "patrick",
     "day": 3,
     "time": "07:30",
@@ -295,6 +385,15 @@ window.MASSES = [
     "type": "Daily Mass",
     "livestream": true,
     "intention": "Blessings for the"
+  },
+  {
+    "church": "mary",
+    "day": 3,
+    "time": "08:30",
+    "presider": null,
+    "type": "Daily Mass",
+    "livestream": false,
+    "intention": ""
   },
   {
     "church": "matthew",
@@ -315,9 +414,27 @@ window.MASSES = [
     "intention": "+Tom Farrell"
   },
   {
+    "church": "mary",
+    "day": 4,
+    "time": "07:00",
+    "presider": null,
+    "type": "Daily Mass",
+    "livestream": false,
+    "intention": ""
+  },
+  {
     "church": "patrick",
     "day": 4,
     "time": "07:30",
+    "presider": null,
+    "type": "Daily Mass",
+    "livestream": false,
+    "intention": ""
+  },
+  {
+    "church": "mary",
+    "day": 4,
+    "time": "08:00",
     "presider": null,
     "type": "Daily Mass",
     "livestream": false,
@@ -342,9 +459,27 @@ window.MASSES = [
     "intention": ""
   },
   {
+    "church": "mary",
+    "day": 5,
+    "time": "07:00",
+    "presider": null,
+    "type": "Daily Mass",
+    "livestream": false,
+    "intention": ""
+  },
+  {
     "church": "patrick",
     "day": 5,
     "time": "07:30",
+    "presider": null,
+    "type": "Daily Mass",
+    "livestream": false,
+    "intention": ""
+  },
+  {
+    "church": "mary",
+    "day": 5,
+    "time": "08:00",
     "presider": null,
     "type": "Daily Mass",
     "livestream": false,
@@ -369,6 +504,15 @@ window.MASSES = [
     "intention": ""
   },
   {
+    "church": "mary",
+    "day": 6,
+    "time": "08:00",
+    "presider": null,
+    "type": "Daily Mass",
+    "livestream": false,
+    "intention": ""
+  },
+  {
     "church": "columbkille",
     "day": 6,
     "time": "08:15",
@@ -385,6 +529,15 @@ window.MASSES = [
     "type": "Vigil",
     "livestream": true,
     "intention": "+Larry Deane"
+  },
+  {
+    "church": "mary",
+    "day": 6,
+    "time": "17:00",
+    "presider": null,
+    "type": "Vigil",
+    "livestream": false,
+    "intention": ""
   },
   {
     "church": "matthew",

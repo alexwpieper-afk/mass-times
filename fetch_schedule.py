@@ -57,6 +57,10 @@ CHURCHES = [
      "pastor": "Fr. Leo Rigatuso",
      "website": "https://stmatthewbellevue.org",
      "bulletin": "https://stmatthewbellevue.org/news/bulletin"},
+    {"id": "mary", "name": "St. Mary's", "town": "Bellevue", "color": "#8A5E72",
+     "pastor": "Fr. Lydell Lape",
+     "website": "https://stmarysbellevue.com",
+     "bulletin": "https://stmarysbellevue.com/bulletin"},
     {"id": "patrick", "name": "St. Patrick", "town": "Gretna", "color": "#5C6E8C",
      "pastor": "Fr. Gregory Baxter",
      "website": "https://stpatricksgretna.org",
@@ -77,6 +81,18 @@ STATIC_SCHEDULES = {
         (0, "08:00", "Sunday Mass"), (0, "10:00", "Sunday Mass"), (0, "12:00", "Sunday Mass"),
         (1, "07:30", "Daily Mass"), (2, "18:00", "Daily Mass"), (3, "07:30", "Daily Mass"),
         (4, "07:30", "Daily Mass"), (5, "07:30", "Daily Mass"),
+    ],
+    "mary": [      # Mon/Tue/Thu/Fri 7 & 8am; Wed 7 & 8:30am; Sat 8am + 5pm Vigil;
+                   # Sun 8/10am, Noon, 1:30pm Spanish
+        (6, "17:00", "Vigil"),
+        (0, "08:00", "Sunday Mass"), (0, "10:00", "Sunday Mass"),
+        (0, "12:00", "Sunday Mass"), (0, "13:30", "Sunday Mass · Spanish"),
+        (1, "07:00", "Daily Mass"), (1, "08:00", "Daily Mass"),
+        (2, "07:00", "Daily Mass"), (2, "08:00", "Daily Mass"),
+        (3, "07:00", "Daily Mass"), (3, "08:30", "Daily Mass"),
+        (4, "07:00", "Daily Mass"), (4, "08:00", "Daily Mass"),
+        (5, "07:00", "Daily Mass"), (5, "08:00", "Daily Mass"),
+        (6, "08:00", "Daily Mass"),
     ],
 }
 

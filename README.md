@@ -6,20 +6,23 @@ A clean, mobile-first web app showing the week's Mass schedule across several
 Omaha-area Catholic parishes, with filters by **church, priest, time of day, and
 day of week**.
 
-## The three parishes (and why they're handled differently)
+## The parishes (and why they're handled differently)
 
 | Parish | Bulletin | What we get | How |
 |--------|----------|-------------|-----|
-| **St. Columbkille** (Papillion) | text PDF | Mass times **+ the presiding priest** of each Mass | parsed live every week |
+| **St. Columbkille** (Papillion) | text PDF w/ presider grid | Mass times **+ the presiding priest** of each Mass | parsed live every week |
 | **St. Matthew** (Bellevue) | scanned image PDF | Mass times only | standing schedule, stored in the script |
+| **St. Mary's** (Bellevue) | text PDF, times only | Mass times only | standing schedule, stored in the script |
 | **St. Patrick** (Gretna) | scanned image PDF | Mass times only | standing schedule, stored in the script |
 
 St. Columbkille's bulletin uniquely prints an *"Intentions & Presiders"* grid in a
 real text layer, so `fetch_schedule.py` downloads the newest one and reads the
-celebrant for every Mass. St. Matthew and St. Patrick publish image-only bulletins
-with a *fixed* weekly schedule and no per-Mass presider, so their times are stored
-directly in the script (read once from their published schedules) — there's
-nothing to parse weekly and no priest to show for them.
+celebrant for every Mass. The other parishes publish only a *fixed* weekly Mass
+schedule with no per-Mass presider, so their times are stored directly in the
+script (read once from each parish's published schedule) — there's nothing to
+parse weekly and no priest to show for them. (St. Mary's bulletin *is* a text PDF,
+but it lists Mass *intentions*, not presiders, and frames its week Mon–Sun rather
+than Sun–Sat, so it's treated as a standing schedule like the image-PDF parishes.)
 
 ## Files
 
