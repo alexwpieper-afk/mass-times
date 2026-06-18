@@ -161,18 +161,46 @@ def get(url: str, attempts: int = 5, timeout: int = 90) -> bytes:
     raise last  # pragma: no cover
 
 
-def find_latest_bulletin() -> tuple[str, str]:
-    """Return (pdf_url, human_title) for the most recent bulletin."""
+def find_latest_bulletins(n: int = 2) -> list[dict]:
+    """Return the n most recent bulletins, newest first, each as
+    {url, title, year, month} — the year/month come from the slug's date
+    (e.g. .../1599-june-14-2026-... ), which is more reliable than the
+    liturgical title for anchoring the bulletin's dates."""
     html = get(BULLETIN_INDEX).decode("utf-8", "replace")
     # links look like /news/bulletin/1579-may-31-2026-holy-trinity-sunday/file
     matches = re.findall(r'href="(/news/bulletin/(\d+)-[^"]*?/file)"', html)
     if not matches:
         sys.exit("Could not find any bulletin links on the index page.")
-    # highest numeric id == newest
-    path, _ = max(matches, key=lambda m: int(m[1]))
-    slug = path.split("/")[3]                       # 1579-may-31-2026-holy-trinity-sunday
-    title = re.sub(r"^\d+-", "", slug).replace("-", " ").title()
-    return BASE + path, title
+    out, seen = [], set()
+    for path, num in sorted(matches, key=lambda m: int(m[1]), reverse=True):
+        if num in seen:
+            continue
+        seen.add(num)
+        slug = path.split("/")[3]                   # 1579-may-31-2026-holy-trinity-sunday
+        title = re.sub(r"^\d+-", "", slug).replace("-", " ").title()
+        dm = re.search(r"-([a-z]+)-\d{1,2}-(\d{4})", path, re.I)
+        month = MONTHS_FULL.get(dm.group(1).title()) if dm else None
+        year = int(dm.group(2)) if dm else None
+        out.append({"url": BASE + path, "title": title, "year": year, "month": month})
+        if len(out) >= n:
+            break
+    return out
+
+
+MONTHS_FULL = {"January": 1, "February": 2, "March": 3, "April": 4, "May": 5, "June": 6,
+               "July": 7, "August": 8, "September": 9, "October": 10, "November": 11, "December": 12,
+               "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "Jun": 6, "Jul": 7, "Aug": 8,
+               "Sept": 9, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12}
+
+
+def iso_date(month_name: str, day: int, base_year: int, base_month: int) -> str:
+    """Build an ISO date from a bulletin day-header month/day, using the
+    bulletin title's year. Rolls the year forward across a Dec->Jan boundary."""
+    mn = MONTHS_FULL.get(month_name)
+    if mn is None:
+        return None
+    year = base_year + (1 if mn < base_month - 6 else 0)
+    return f"{year:04d}-{mn:02d}-{int(day):02d}"
 
 
 def to_24h(hour: int, minute: int, ap: str) -> str:
@@ -205,11 +233,15 @@ def classify(day_id: int, time24: str, is_communion: bool):
     return "Daily Mass", live
 
 
-def parse_masses(pdf_bytes: bytes):
+def parse_bulletin(pdf_bytes: bytes, base_year: int, base_month: int):
+    """Parse one St. Columbkille bulletin into date-keyed masses with presiders.
+    base_year/base_month anchor the day-header dates (from the bulletin slug).
+    Returns (masses, week_label, pastor). Each mass: {church, date (ISO), time,
+    presider, type, livestream}."""
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     full = "\n".join(doc[i].get_text() for i in range(doc.page_count))
 
-    # liturgical title / date, e.g. "Holy Trinity Sunday • May 31, 2026"
+    # liturgical title for display, e.g. "Holy Trinity Sunday • May 31, 2026"
     week = None
     m = re.search(r"([A-Z][^\n•]*?Sunday[^\n•]*)•\s*([A-Z][a-z]+ \d{1,2},\s*\d{4})", full)
     if m:
@@ -220,125 +252,116 @@ def parse_masses(pdf_bytes: bytes):
     start = full.find("INTENTIONS & PRESIDERS")
     if start == -1:
         sys.exit("Bulletin has no 'INTENTIONS & PRESIDERS' section to parse.")
-    # the section ends where the parallel "PARISH EVENTS" column resumes day headers
     section = full[start:start + 2000]
-    lines = section.splitlines()
 
     masses = []
-    dates = {}            # day id -> "June 7"
-    current_day = None
-    for raw in lines:
+    cur_iso = cur_wd = None
+    for raw in section.splitlines():
         line = raw.strip()
         if not line:
             continue
         dh = DAY_HEADER_RE.match(line)
         if dh:
-            current_day = WEEKDAY_ID[dh.group(1)]
-            dates[current_day] = f"{dh.group(2)} {int(dh.group(3))}"
+            cur_wd = WEEKDAY_ID[dh.group(1)]
+            cur_iso = iso_date(dh.group(2), int(dh.group(3)), base_year, base_month) if base_year else None
             continue
         tm = TIME_RE.match(line)
-        if not tm or current_day is None:
+        if not tm or cur_iso is None:
             continue  # intention continuation / noise — skip
-        presider_tokens = PRESIDER_RE.findall(line)
-        if not presider_tokens:
+        tokens = PRESIDER_RE.findall(line)
+        if not tokens or tokens[-1] not in PRIESTS:
             continue
-        token = presider_tokens[-1]            # presider sits at the end of the line
-        token = "Fr. Tom" if token == "Fr. Tom" else token
-        if token not in PRIESTS:
-            continue
+        token = tokens[-1]                          # presider sits at the end of the line
         time24 = to_24h(int(tm.group(1)), int(tm.group(2)), tm.group(3))
         is_communion = "communion service" in line.lower()
-        # intention = text between the time and the presider token
-        body = line[tm.end():]
-        body = body[:body.rfind(token)] if token in body else body
-        intention = re.sub(r"\s+", " ", body).strip(" ,")
-        mtype, live = classify(current_day, time24, is_communion)
+        mtype, live = classify(cur_wd, time24, is_communion)
         masses.append({
-            "church": "columbkille",
-            "day": current_day,
-            "time": time24,
-            "presider": PRIESTS[token]["id"],
-            "type": mtype,
-            "livestream": live,
-            "intention": "" if is_communion else intention,
+            "church": "columbkille", "date": cur_iso, "time": time24,
+            "presider": PRIESTS[token]["id"], "type": mtype, "livestream": live,
         })
-
-    # de-dupe + stable sort by day then time
-    seen, unique = set(), []
-    for x in masses:
-        key = (x["day"], x["time"], x["presider"])
-        if key not in seen:
-            seen.add(key)
-            unique.append(x)
-    unique.sort(key=lambda x: (x["day"], x["time"]))
-    return unique, week, dates, pastor
+    return masses, week, pastor
 
 
-def build_static_masses():
-    masses = []
+def build_weekly_masses():
+    """Static parishes as recurring weekday patterns (no dates, no presiders).
+    The app expands these onto whatever dates fall in the rolling window."""
+    out = []
     for cid, sched in STATIC_SCHEDULES.items():
         for day, time24, mtype in sched:
-            masses.append({
-                "church": cid, "day": day, "time": time24,
-                "presider": None, "type": mtype, "livestream": False, "intention": "",
-            })
-    return masses
+            out.append({"church": cid, "day": day, "time": time24, "type": mtype})
+    return out
 
 
-def render_data_js(masses, week, dates, columbkille_source, columbkille_pastor) -> str:
-    used = {m.get("presider") for m in masses}
+def render_data_js(dated, weekly, week, pastor, sources) -> str:
+    used = {m.get("presider") for m in dated}
     priests = [p for p in PRIESTS.values() if p["id"] in used]
-    days = [{**d, "date": dates.get(d["id"])} for d in DAYS]
     churches = [dict(c) for c in CHURCHES]
-    if columbkille_pastor:                       # keep current through retirement
+    if pastor:                                   # keep current through retirement
         for c in churches:
             if c["id"] == "columbkille":
-                c["pastor"] = columbkille_pastor
+                c["pastor"] = pastor
+    coverage = ({"start": min(m["date"] for m in dated),
+                 "end": max(m["date"] for m in dated)} if dated else None)
     app = {
         "title": "Mass Times",
         "region": "Omaha-area Catholic parishes",
         "week": week,
         "presiderNote": "Presiding priests are listed for St. Columbkille; "
                         "the other parishes publish Mass times only.",
+        "columbkilleCoverage": coverage,
     }
     j = lambda v: json.dumps(v, ensure_ascii=False, indent=2)
     return (
         "// AUTO-GENERATED by fetch_schedule.py — do not edit by hand.\n"
         f"// St. Columbkille week: {week}\n"
-        f"// {columbkille_source}\n\n"
+        + "".join(f"// source: {s}\n" for s in sources) + "\n"
         f"window.APP = {j(app)};\n\n"
         f"window.CHURCHES = {j(churches)};\n\n"
         f"window.PRIESTS = {j(priests)};\n\n"
-        f"window.DAYS = {j(days)};\n\n"
-        f"window.MASSES = {j(masses)};\n"
+        # St. Columbkille masses, keyed by actual date (presiders included).
+        f"window.DATED_MASSES = {j(dated)};\n\n"
+        # Other parishes, recurring weekly patterns the app expands onto dates.
+        f"window.WEEKLY_MASSES = {j(weekly)};\n"
     )
 
 
 def main():
-    print("Finding latest St. Columbkille bulletin…")
-    pdf_url, title = find_latest_bulletin()
-    print(f"  → {title}\n  → {pdf_url}")
-    print("Downloading PDF…")
-    time.sleep(3)  # be polite between the index hit and the large PDF download
-    pdf_bytes = get(pdf_url, attempts=3, timeout=300)  # 15 MB, often throttled from CI
-    print(f"  → {len(pdf_bytes):,} bytes")
-    print("Parsing St. Columbkille schedule…")
-    columb, week, dates, pastor = parse_masses(pdf_bytes)
-    if not columb:
+    print("Finding latest St. Columbkille bulletins…")
+    bulletins = find_latest_bulletins(2)
+    for b in bulletins:
+        print(f"  → {b['title']}\n     {b['url']}")
+
+    dated, week, pastor, sources = [], None, None, []
+    for idx, b in enumerate(bulletins):
+        time.sleep(3)  # be polite between requests to the rate-limiting server
+        print(f"Downloading {b['title']}…")
+        pdf = get(b["url"], attempts=3, timeout=300)   # 15 MB, often throttled from CI
+        print(f"  → {len(pdf):,} bytes")
+        masses, w, p = parse_bulletin(pdf, b["year"], b["month"])
+        print(f"  → parsed {len(masses)} masses")
+        dated += masses
+        sources.append(b["url"])
+        if idx == 0:                               # newest defines current week + pastor
+            week, pastor = w, p
+
+    if not dated:
         sys.exit("Parsed 0 masses — the bulletin layout may have changed.")
 
-    masses = columb + build_static_masses()
-    masses.sort(key=lambda m: (m["day"], m["time"], m["church"]))
-    OUT.write_text(render_data_js(masses, week, dates, pdf_url, pastor), encoding="utf-8")
+    # merge: one mass per (date, time); newest bulletin wins on any overlap
+    merged, seen = [], set()
+    for m in sorted(dated, key=lambda x: (x["date"], x["time"])):
+        key = (m["date"], m["time"])
+        if key not in seen:
+            seen.add(key)
+            merged.append(m)
+
+    weekly = build_weekly_masses()
+    OUT.write_text(render_data_js(merged, weekly, week, pastor, sources), encoding="utf-8")
     if pastor:
         print(f"  → St. Columbkille pastor: {pastor}")
-
-    counts = {}
-    for m in masses:
-        counts[m["church"]] = counts.get(m["church"], 0) + 1
-    summary = ", ".join(f"{k}: {v}" for k, v in counts.items())
-    print(f"  → St. Columbkille week: {week}")
-    print(f"  → {len(masses)} masses total ({summary})")
+    print(f"  → St. Columbkille presider coverage: "
+          f"{merged[0]['date']} … {merged[-1]['date']} ({len(merged)} masses)")
+    print(f"  → {len(weekly)} weekly masses across {len(STATIC_SCHEDULES)} other parishes")
     print(f"  → wrote {OUT}")
 
 

@@ -6,6 +6,18 @@ A clean, mobile-first web app showing the week's Mass schedule across several
 Omaha-area Catholic parishes, with filters by **church, priest, time of day, and
 day of week**.
 
+## The view: a rolling 7-day window
+
+The app always shows **today plus the next 6 days** of upcoming masses — no past
+days. St. Columbkille's masses are keyed by actual date (parsed from its
+bulletins) and show the presiding priest; the other parishes are recurring
+weekly patterns expanded onto each date. Because the fetcher pulls the **two most
+recent** bulletins (~two weeks of dated coverage), the window stays covered across
+the week boundary. If the window's far edge runs past the latest bulletin,
+St. Columbkille's presiders simply fill in for those days once the next bulletin
+publishes — the other parishes (recurring) always show. The window advances with
+the calendar automatically; the Sun/Mon refresh keeps the dated coverage ahead.
+
 ## The parishes (and why they're handled differently)
 
 | Parish | Bulletin | What we get | How |
@@ -28,8 +40,8 @@ than Sun–Sat, so it's treated as a standing schedule like the image-PDF parish
 
 | File | What it is |
 |------|------------|
-| `fetch_schedule.py` | Builds `data.js`: parses St. Columbkille's bulletin live + merges the static schedules. |
-| `data.js` | **Auto-generated** data (`window.APP`, `CHURCHES`, `PRIESTS`, `DAYS`, `MASSES`). Don't edit by hand. |
+| `fetch_schedule.py` | Builds `data.js`: parses the **two most recent** St. Columbkille bulletins into date-keyed masses + holds the other parishes' weekly schedules. |
+| `data.js` | **Auto-generated** data: `window.APP`, `CHURCHES`, `PRIESTS`, `DATED_MASSES` (St. Columbkille, keyed by ISO date), `WEEKLY_MASSES` (recurring weekday patterns). Don't edit by hand. |
 | `app.jsx` / `app.js` | The UI source and its pre-compiled production build. |
 | `index.html` | Page shell (production React from CDN + `data.js` + `app.js`). |
 | `build.sh` | Compiles `app.jsx` → `app.js` with esbuild. |
