@@ -99,12 +99,37 @@ STATIC_SCHEDULES = {
 # Map the short presider token used in the bulletin -> full priest record.
 # The bulletin writes "Fr. Tom" for the pastor (Tom Greisen) and "Fr. Magnuson"
 # for the retired Tom Magnuson, so the tokens are unambiguous.
-PRIESTS = {
+KNOWN_PRIESTS = {
     "Fr. Tom":       {"id": "greisen",  "name": "Fr. Tom Greisen",   "role": "Pastor",            "initials": "TG", "color": "#9E6B3F"},
     "Fr. Moser":     {"id": "moser",    "name": "Fr. Patrick Moser", "role": "Associate Pastor",  "initials": "PM", "color": "#5E7C6B"},
     "Fr. Magnuson":  {"id": "magnuson", "name": "Fr. Tom Magnuson",  "role": "Retired",           "initials": "TM", "color": "#5C6E8C"},
     "Deacon":        {"id": "deacon",   "name": "Deacon",            "role": "Communion Service", "initials": "Dn", "color": "#8A5E72"},
 }
+
+# Visiting/guest priests appear in the bulletin without being in the standing
+# clergy list (e.g. "Fr. Reddy"). We must NOT drop their Masses, so any
+# unrecognised presider token gets a record built on the fly.
+_DYN_COLORS = ["#7A6BA8", "#3F7A8C", "#A8743F", "#5F8C5C", "#8C5C72"]
+_DISCOVERED = {}
+
+
+def resolve_priest(token: str) -> dict:
+    if token in KNOWN_PRIESTS:
+        return KNOWN_PRIESTS[token]
+    if token in _DISCOVERED:
+        return _DISCOVERED[token]
+    names = re.sub(r"\b(Fr|Rev|Msgr|Father)\.?", "", token).split()
+    if len(names) >= 2:
+        initials = (names[0][0] + names[-1][0]).upper()
+    elif names:
+        initials = names[0][:2].title()
+    else:
+        initials = "Fr"
+    slug = re.sub(r"[^a-z0-9]+", "-", "-".join(names).lower()).strip("-") or "guest"
+    rec = {"id": slug, "name": token.strip(), "role": "Visiting priest",
+           "initials": initials, "color": _DYN_COLORS[len(_DISCOVERED) % len(_DYN_COLORS)]}
+    _DISCOVERED[token] = rec
+    return rec
 
 DAYS = [
     {"id": 0, "short": "Sun", "long": "Sunday"},
@@ -269,15 +294,15 @@ def parse_bulletin(pdf_bytes: bytes, base_year: int, base_month: int):
         if not tm or cur_iso is None:
             continue  # intention continuation / noise — skip
         tokens = PRESIDER_RE.findall(line)
-        if not tokens or tokens[-1] not in PRIESTS:
+        if not tokens:
             continue
-        token = tokens[-1]                          # presider sits at the end of the line
+        rec = resolve_priest(tokens[-1])            # presider sits at the end of the line
         time24 = to_24h(int(tm.group(1)), int(tm.group(2)), tm.group(3))
         is_communion = "communion service" in line.lower()
         mtype, live = classify(cur_wd, time24, is_communion)
         masses.append({
             "church": "columbkille", "date": cur_iso, "time": time24,
-            "presider": PRIESTS[token]["id"], "type": mtype, "livestream": live,
+            "presider": rec["id"], "type": mtype, "livestream": live,
         })
     return masses, week, pastor
 
@@ -294,7 +319,8 @@ def build_weekly_masses():
 
 def render_data_js(dated, weekly, week, pastor, sources) -> str:
     used = {m.get("presider") for m in dated}
-    priests = [p for p in PRIESTS.values() if p["id"] in used]
+    all_priests = list(KNOWN_PRIESTS.values()) + list(_DISCOVERED.values())
+    priests = [p for p in all_priests if p["id"] in used]
     churches = [dict(c) for c in CHURCHES]
     if pastor:                                   # keep current through retirement
         for c in churches:

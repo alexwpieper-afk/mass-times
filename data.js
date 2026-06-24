@@ -81,6 +81,20 @@ window.PRIESTS = [
     "role": "Communion Service",
     "initials": "Dn",
     "color": "#8A5E72"
+  },
+  {
+    "id": "reddy",
+    "name": "Fr. Reddy",
+    "role": "Visiting priest",
+    "initials": "Re",
+    "color": "#7A6BA8"
+  },
+  {
+    "id": "mcneilly",
+    "name": "Fr. McNeilly",
+    "role": "Visiting priest",
+    "initials": "Mc",
+    "color": "#3F7A8C"
   }
 ];
 
@@ -171,6 +185,22 @@ window.DATED_MASSES = [
     "time": "08:15",
     "presider": "deacon",
     "type": "Communion Service",
+    "livestream": false
+  },
+  {
+    "church": "columbkille",
+    "date": "2026-06-20",
+    "time": "17:00",
+    "presider": "mcneilly",
+    "type": "Vigil",
+    "livestream": true
+  },
+  {
+    "church": "columbkille",
+    "date": "2026-06-20",
+    "time": "18:30",
+    "presider": "mcneilly",
+    "type": "Vigil",
     "livestream": false
   },
   {
@@ -319,9 +349,25 @@ window.DATED_MASSES = [
   },
   {
     "church": "columbkille",
+    "date": "2026-06-27",
+    "time": "18:30",
+    "presider": "reddy",
+    "type": "Vigil",
+    "livestream": false
+  },
+  {
+    "church": "columbkille",
     "date": "2026-06-28",
     "time": "07:30",
     "presider": "moser",
+    "type": "Sunday Mass",
+    "livestream": false
+  },
+  {
+    "church": "columbkille",
+    "date": "2026-06-28",
+    "time": "09:00",
+    "presider": "reddy",
     "type": "Sunday Mass",
     "livestream": false
   },
@@ -338,6 +384,14 @@ window.DATED_MASSES = [
     "date": "2026-06-28",
     "time": "12:00",
     "presider": "magnuson",
+    "type": "Sunday Mass",
+    "livestream": false
+  },
+  {
+    "church": "columbkille",
+    "date": "2026-06-28",
+    "time": "17:00",
+    "presider": "reddy",
     "type": "Sunday Mass",
     "livestream": false
   }
